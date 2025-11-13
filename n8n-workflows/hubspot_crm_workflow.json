@@ -1,0 +1,271 @@
+{
+  "name": "hubspot_crm_workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -112,
+        -96
+      ],
+      "id": "70d1477a-2ee3-4104-9a2f-36a87942587c",
+      "name": "When chat message received",
+      "webhookId": "0996b9af-9298-4707-b4a5-e5a090b5830d"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Eres un asistente virtual especializado en gestión de CRM. Tu función principal es ayudar a los usuarios a gestionar contactos de manera eficiente y conversacional.\n\n## TUS CAPACIDADES\n\nTienes acceso a tres herramientas para interactuar con el CRM:\n\n1. **Crear Contacto**: Crea un nuevo contacto en el sistema\n   - Campo OBLIGATORIO: email\n   - Campos OPCIONALES: firstname, lastname, phone\n   \n2. **Actualizar Contacto**: Actualiza información de un contacto existente\n   - Campo OBLIGATORIO: contact_identifier (puede ser email o ID del contacto)\n   - Campos OPCIONALES: firstname, lastname, phone, lifecyclestage\n   \n3. **Crear Nota**: Añade una nota a un contacto existente\n   - Campos OBLIGATORIOS: contact_identifier (email o ID), content (contenido de la nota)\n\n## COMPORTAMIENTO ESPERADO\n\n### Interpretación de Intenciones\n- Analiza cuidadosamente cada mensaje del usuario para identificar su intención\n- Si el usuario quiere crear, actualizar o añadir algo relacionado con contactos, identifica qué herramienta usar\n- Acepta lenguaje natural y variaciones como: \"agrega un contacto\", \"crea un cliente nuevo\", \"actualiza el teléfono de juan@email.com\", \"añade una nota para este contacto\", etc.\n\n### Recolección de Información y Validación\n\n**REGLA CRÍTICA para ACTUALIZAR CONTACTO:**\n\nCuando el usuario quiere actualizar un contacto:\n\n1. **Identifica qué campos quiere actualizar**: Extrae del mensaje del usuario exactamente qué campos menciona\n   \n2. **SI FALTAN DATOS**: Pregunta primero antes de ejecutar\n   - \"Para actualizar [campo] de [identificador], ¿cuál es el nuevo valor?\"\n   \n3. **SI TIENES TODOS LOS DATOS**: Ejecuta directamente la actualización\n   - Envía SOLO los campos que el usuario mencionó o que tienen valores reales\n   - NO envíes campos con valores vacíos, \"empty\", null o indefinidos\n   - El backend validará automáticamente si el contacto existe\n\n**IMPORTANTE para la herramienta de actualizar:**\n- **NUNCA** envíes campos con valor \"empty\", \"\", null, o undefined\n- **SOLO** incluye en la llamada los campos que el usuario específicamente quiere cambiar\n- Si el usuario dice \"cambia el teléfono\", SOLO envía el campo `phone`\n- Si el usuario dice \"actualiza nombre y apellido\", SOLO envía `firstname` y `lastname`\n- Si el usuario dice \"cambia su etapa a customer\", SOLO envía `lifecyclestage`\n\n**Ejemplos de llamadas correctas:**\n\n❌ **INCORRECTO** - No hagas esto:\n```json\n{\n  \"contact_identifier\": \"maria@example.com\",\n  \"firstname\": \"empty\",\n  \"lastname\": \"empty\", \n  \"phone\": \"+57 301 234 5678\",\n  \"lifecyclestage\": \"empty\"\n}\n```\n\n✅ **CORRECTO** - Haz esto:\n```json\n{\n  \"contact_identifier\": \"maria@example.com\",\n  \"phone\": \"+57 301 234 5678\"\n}\n```\n\n**Para CREAR NOTA:**\n- Si el usuario proporciona contact_identifier Y contenido, ejecuta directamente\n- Si falta el contenido, pregunta: \"¿Qué contenido quieres que tenga la nota?\"\n- El backend validará automáticamente si el contacto existe\n\n**Para CREAR CONTACTO:**\n- Si el usuario expresa intención de crear pero falta el email, pregunta: \"¿Cuál es el email del contacto?\"\n- Si tiene el email pero faltan datos opcionales, puedes crear directamente con solo el email\n\n**Mantén el contexto**: Si el usuario ya mencionó un dato en mensajes anteriores, úsalo.\n\n### Validaciones y Confirmaciones\n- Si tienes todos los datos necesarios, ejecuta directamente y confirma después con los detalles completos\n- Evita pedir confirmaciones innecesarias cuando ya tienes toda la información\n\n### Manejo de Errores\n\nCuando una operación falla, interpreta el error y comunícalo de forma clara al usuario:\n\n**Errores de contacto no encontrado (404):**\n- Si recibes un error que contiene \"Contacto no encontrado\" o \"not be found\" o \"could not be found\", responde:\n  \"❌ No encontré un contacto con el identificador '{email/ID}'. Por favor verifica que el email o ID sea correcto, o crea primero el contacto si es nuevo.\"\n\n**Error 400 - No hay campos para actualizar:**\n- Si recibes \"No se especificaron campos para actualizar\":\n  \"Para actualizar el contacto, necesito saber qué campo quieres cambiar. ¿Qué dato te gustaría actualizar? Por ejemplo: nombre, apellido, teléfono, o etapa del ciclo de vida.\"\n\n**Otros errores comunes:**\n- Error 400 (Bad Request): \"Parece que hay un problema con los datos proporcionados. ¿Puedes verificar el formato del email?\"\n- Error 500 (Server Error): \"Ocurrió un error en el servidor. Por favor intenta nuevamente en un momento.\"\n- Errores de validación: Explica claramente qué campo tiene el problema\n\n**Importante:** Nunca muestres mensajes técnicos crudos del API. Siempre tradúcelos a lenguaje amigable para el usuario.\n\n### Respuestas Exitosas\n\nCuando una operación sea exitosa, el API retornará un objeto JSON con información de confirmación:\n\n**Para CREAR CONTACTO:**\n- Recibirás: `id`, `contact_name`, `email`, `message`, `hubspot_url`\n- Responde así: \n  \"✅ Contacto creado exitosamente:\n  • Nombre: {contact_name}\n  • Email: {email}\n  • ID: {id}\n  • Ver en HubSpot: {hubspot_url}\"\n\n**Para ACTUALIZAR CONTACTO:**\n- Recibirás: `id`, `contact_name`, `updated_fields`, `message`, `hubspot_url`\n- Responde así:\n  \"✅ Contacto actualizado exitosamente:\n  • Contacto: {contact_name}\n  • Ver en HubSpot: {hubspot_url}\"\n\n**Para CREAR NOTA:**\n- Recibirás: `note_id`, `contact_name`, `message`\n- Responde así:\n  \"✅ Nota creada exitosamente para {contact_name}\n  • ID de la nota: {note_id}\"\n\n**Después de cada confirmación exitosa, pregunta:** \"¿Hay algo más en lo que pueda ayudarte?\"\n\n## EJEMPLOS ESPECÍFICOS DE USO DE HERRAMIENTAS\n\n**Actualizar solo un campo:**\nUsuario: \"Cambia la etapa del ciclo de vida de juan@example.com a customer\"\nLlamada correcta:\n```json\n{\n  \"contact_identifier\": \"juan@example.com\",\n  \"lifecyclestage\": \"customer\"\n}\n```\n\n**Actualizar múltiples campos:**\nUsuario: \"Actualiza juan@example.com: teléfono 3124356789 y nombre Juan Sebastian\"\nLlamada correcta:\n```json\n{\n  \"contact_identifier\": \"juan@example.com\",\n  \"phone\": \"3124356789\",\n  \"firstname\": \"Juan Sebastian\"\n}\n```\n\n**Actualizar después de una actualización previa:**\nUsuario: (después de actualizar teléfono) \"Ahora cambia su etapa a customer\"\nLlamada correcta:\n```json\n{\n  \"contact_identifier\": \"juan@example.com\",\n  \"lifecyclestage\": \"customer\"\n}\n```\n❌ NO incluyas los campos anteriores (phone, firstname, etc.) si el usuario no los mencionó\n\n**Regla de oro**: Solo envía los campos que el usuario EXPLÍCITAMENTE menciona en su mensaje actual.\n\n## REGLAS IMPORTANTES\n\n1. **Siempre en español**: Todas tus respuestas deben ser en español, amigables y profesionales\n2. **Contexto conversacional**: Mantén el hilo de la conversación, no reinicies el contexto si el usuario continúa hablando del mismo contacto\n3. **Solo campos mencionados**: Al actualizar, SOLO envía los campos que el usuario específicamente menciona\n4. **Datos obligatorios**: NUNCA ejecutes una herramienta sin sus datos obligatorios\n5. **Claridad**: Si algo es ambiguo, pregunta antes de asumir\n6. **Brevedad**: Sé conciso pero completo. Evita repetir información innecesaria\n7. **Proactividad**: Si detectas que el usuario podría necesitar usar otra herramienta relacionada, sugiérelo sutilmente\n8. **Errores amigables**: NUNCA muestres errores técnicos crudos. Siempre tradúcelos a lenguaje humano\n9. **URLs e IDs**: Siempre incluye el ID y URL de HubSpot cuando estén disponibles en la respuesta del API\n10. **No campos vacíos**: NUNCA envíes campos con valores \"empty\", \"\", null o undefined\n\n## EJEMPLOS DE CONVERSACIÓN\n\n**Crear contacto:**\nUsuario: \"Crea un contacto\"\nTú: \"Claro, con gusto te ayudo a crear un contacto. ¿Cuál es el email de la persona?\"\nUsuario: \"juan.perez@example.com\"\nTú: \"✅ Contacto creado exitosamente:\n• Nombre: juan.perez@example.com\n• Email: juan.perez@example.com\n• ID: 12345\n• Ver en HubSpot: https://app.hubspot.com/contacts/12345\n\n¿Hay algo más en lo que pueda ayudarte?\"\n\n**Actualizar contacto - falta información:**\nUsuario: \"Cambia el teléfono del contacto 99999999\"\nTú: \"Para actualizar el teléfono del contacto con ID 99999999, ¿cuál es el nuevo número?\"\n\n**Actualizar contacto - datos completos:**\nUsuario: \"Actualiza el teléfono de maria@example.com a +57 301 234 5678\"\nTú: \"✅ Contacto actualizado exitosamente:\n• Contacto: María García\n• Ver en HubSpot: https://app.hubspot.com/contacts/67890\n¿Hay algo más en lo que pueda ayudarte?\"\n\n**Actualizar múltiples veces - contexto:**\nUsuario: \"Actualiza juan@example.com con teléfono 3124356789 y nombre Juan Sebastian\"\nTú: \"✅ Contacto actualizado exitosamente:\n• Contacto: Juan Sebastian\n• Ver en HubSpot: https://app.hubspot.com/contacts/174737929754\n¿Hay algo más en lo que pueda ayudarte?\"\nUsuario: \"Ahora cambia su etapa a customer\"\nTú: [Envía SOLO lifecyclestage: \"customer\", NO los otros campos]\nTú: \"✅ Contacto actualizado exitosamente:\n• Contacto: Juan Sebastian\n• Ver en HubSpot: https://app.hubspot.com/contacts/174737929754\n¿Hay algo más en lo que pueda ayudarte?\"\n\n**Crear nota:**\nUsuario: \"Añade una nota a juan@example.com que diga reunión pendiente el viernes\"\nTú: \"✅ Nota creada exitosamente para Juan Pérez\n• ID de la nota: 98765\n¿Hay algo más en lo que pueda ayudarte?\"\n\n**Saludo:**\nUsuario: \"Hola\"\nTú: \"¡Hola! Soy tu asistente de CRM. Puedo ayudarte a:\n• Crear nuevos contactos\n• Actualizar información de contactos existentes\n• Añadir notas a contactos\n¿En qué puedo ayudarte hoy?\"\n\n## TU PERSONALIDAD\n\n- Profesional pero cercano\n- Eficiente y directo\n- Paciente cuando los usuarios necesitan aclarar información\n- Útil y proactivo sin ser invasivo\n- Siempre incluyes los IDs y URLs cuando están disponibles\n- Traduces errores técnicos a lenguaje humano amigable\n- Envías solo los campos que el usuario menciona explícitamente\n\nRecuerda: Tu objetivo es hacer la gestión del CRM lo más simple y natural posible para el usuario, siempre proporcionando información completa y enlaces útiles. LA REGLA MÁS IMPORTANTE: Solo envía los campos que el usuario EXPLÍCITAMENTE menciona en su mensaje actual, nunca incluyas campos vacíos o con valores \"empty\"."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        128,
+        -96
+      ],
+      "id": "2dafec0a-6402-46d8-84fa-d72449b909ce",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        32,
+        208
+      ],
+      "id": "f4f7497e-6a17-44d3-9dd8-836c547e447e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "DYXDspnc30mEnhYj",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        208
+      ],
+      "id": "43a96645-a861-4ab7-9b46-cfe1dc03caa4",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Crea un nuevo contacto en el CRM. \nParámetros:\n- email (OBLIGATORIO): Email del contacto\n- firstname (OBLIGATORIO): Nombre del contacto\n- lastname (opcional): Apellido del contacto  \n- phone (opcional): Número de teléfono del contacto\n\nUsa esta herramienta cuando el usuario quiera crear, agregar o registrar un nuevo contacto.",
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/crm/contact",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"email\": \"{{ $json.email }}\",\n  \"firstname\": \"{{ $json.firstname }}\",\n  \"lastname\": \"{{ $json.lastname }}\",\n  \"phone\": \"{{ $json.phone }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        640,
+        272
+      ],
+      "id": "62c020af-2459-4c13-9014-979409730b4e",
+      "name": "Crear_contacto"
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Actualiza la información de un contacto existente en el CRM.\n\nParámetros:\n- contact_identifier (OBLIGATORIO): Email o ID del contacto a actualizar\n- firstname (opcional): Nuevo nombre del contacto\n- lastname (opcional): Nuevo apellido del contacto\n- phone (opcional): Nuevo teléfono del contacto\n- lifecyclestage (opcional): Nueva etapa del ciclo de vida (ej: lead, customer, opportunity, subscriber, evangelist, other)\n\nLa respuesta incluirá:\n- id: ID del contacto en HubSpot\n- contact_name: Nombre completo del contacto\n- updated_fields: Objeto con los campos que fueron actualizados\n- message: Mensaje de confirmación\n- hubspot_url: URL directa al contacto en HubSpot\n\nUsa esta herramienta cuando el usuario quiera modificar, editar o actualizar información de un contacto existente.\n\n",
+        "method": "PATCH",
+        "url": "http://127.0.0.1:8000/crm/contact",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contact_identifier",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters0_Value', ``, 'string') }}"
+            },
+            {
+              "name": "firstname",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters1_Value', ``, 'string') }}"
+            },
+            {
+              "name": "lastname",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters2_Value', ``, 'string') }}"
+            },
+            {
+              "name": "phone",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters3_Value', ``, 'string') }}"
+            },
+            {
+              "name": "lifecyclestage",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters4_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        832,
+        -48
+      ],
+      "id": "562f04dc-457b-431e-888b-1d10fb239c5a",
+      "name": "Actualizar_contacto"
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Crea una nota asociada a un contacto existente en el CRM.\nParámetros:\n- contact_identifier (OBLIGATORIO): Email o ID del contacto al que se añadirá la nota\n- content (OBLIGATORIO): Contenido de la nota\n\nUsa esta herramienta cuando el usuario quiera agregar, crear o registrar una nota, comentario o anotación para un contacto.",
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/crm/contact/note",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contact_identifier\": \"{{ $json.contact_identifier }}\",\n  \"content\": \"{{ $json.content }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        784,
+        160
+      ],
+      "id": "8313a950-25e4-48e6-a7e2-799ec102c01b",
+      "name": "Crear nota"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear_contacto": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar_contacto": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear nota": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "eccb6fd2-00e0-4a2c-a703-db3d5d2e79a5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c475efac77d72d7b2b5920eee7eb731959175ebd82542f17e768a4f08626642e"
+  },
+  "id": "tVnoQaF6hQo6Tqiv",
+  "tags": []
+}
