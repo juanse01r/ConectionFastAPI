@@ -78,7 +78,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"email\": \"{{ $json.email }}\",\n  \"firstname\": \"{{ $json.firstname }}\",\n  \"lastname\": \"{{ $json.lastname }}\",\n  \"phone\": \"{{ $json.phone }}\"\n}",
+        "jsonBody": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('JSON', ``, 'json') }}",
         "options": {
           "response": {
             "response": {
@@ -90,8 +90,8 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
       "position": [
-        640,
-        272
+        672,
+        240
       ],
       "id": "62c020af-2459-4c13-9014-979409730b4e",
       "name": "Crear_contacto"
@@ -147,8 +147,8 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
       "position": [
-        832,
-        -48
+        816,
+        -112
       ],
       "id": "562f04dc-457b-431e-888b-1d10fb239c5a",
       "name": "Actualizar_contacto"
@@ -169,7 +169,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"contact_identifier\": \"{{ $json.contact_identifier }}\",\n  \"content\": \"{{ $json.content }}\"\n}",
+        "jsonBody": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('JSON', ``, 'json') }}",
         "options": {
           "response": {
             "response": {
@@ -181,8 +181,8 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
       "position": [
-        784,
-        160
+        816,
+        96
       ],
       "id": "8313a950-25e4-48e6-a7e2-799ec102c01b",
       "name": "Crear nota"
@@ -261,7 +261,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "eccb6fd2-00e0-4a2c-a703-db3d5d2e79a5",
+  "versionId": "509caabe-8d95-4fca-98b7-2be9c3ca6fb2",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "c475efac77d72d7b2b5920eee7eb731959175ebd82542f17e768a4f08626642e"

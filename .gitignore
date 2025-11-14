@@ -104,3 +104,10 @@ dist
 .tern-port
 
 hubspot.config.yml
+
+# Archivos de sistema de macOS
+.DS_Store
+
+# Entorno virtual
+venv/
+
