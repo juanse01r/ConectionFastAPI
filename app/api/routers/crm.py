@@ -55,10 +55,21 @@ async def add_note_to_contact(note: NoteCreate):
         )
         
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        error_message = str(e)
+        
+        # Distinguir entre contacto no encontrado (404) y contenido faltante (400)
+        if "no encontrado" in error_message.lower() or "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_message
+            )
+        else:
+            # Error de validación (contenido faltante u otros)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_message
+            )
+            
     except Exception as e:
         logger.error(f"Error al agregar nota: {str(e)}")
         raise HTTPException(

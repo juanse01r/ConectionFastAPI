@@ -72,7 +72,18 @@ class CRMService:
         """Agrega una nota a un contacto"""
         logger.info(f"Agregando nota a: {note.contact_identifier}")
         
-        contact = await self.find_contact(note.contact_identifier)
+        # PASO 1: Validar que el contacto existe
+        try:
+            contact = await self.find_contact(note.contact_identifier)
+        except Exception as e:
+            # Si find_contact lanza excepción, propagar como ValueError para 404
+            raise ValueError(f"Contacto no encontrado con identificador: {note.contact_identifier}")
+        
+        # PASO 2: Validar que hay contenido
+        if not note.content or len(note.content.strip()) == 0:
+            raise ValueError("El contenido de la nota es obligatorio")
+        
+        # PASO 3: Crear la nota
         contact_id = contact["id"]
         props = contact.get("properties", {})
         contact_name = self._get_full_name(props)

@@ -14,7 +14,7 @@ class ContactCreate(BaseModel):
 
 class NoteCreate(BaseModel):
     contact_identifier: str = Field(..., description="Email o ID del contacto")
-    content: str = Field(..., min_length=1)
+    content: str = Field(default="", description="Contenido de la nota")
 
 
 class ContactUpdate(BaseModel):

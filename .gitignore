@@ -111,3 +111,6 @@ hubspot.config.yml
 # Entorno virtual
 venv/
 
+# Python cache
+__pycache__/
+*.pyc
